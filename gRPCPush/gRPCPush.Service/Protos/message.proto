@@ -1,0 +1,15 @@
+syntax = "proto3";
+option csharp_namespace = "gRPCMessage.Service";
+
+service MessageService {
+  rpc SendMessage (stream MessageRequest) returns (stream MessageReply);
+}
+
+message MessageRequest{
+    string clientId = 1;
+}
+
+message MessageReply{
+    string Data = 1;
+}
+
