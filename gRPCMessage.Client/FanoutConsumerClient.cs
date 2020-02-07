@@ -5,6 +5,9 @@ using System.Threading.Tasks;
 
 namespace gRPCMessage.Client
 {
+    /// <summary>
+    /// we can inherit this class
+    /// </summary>
     public class FanoutConsumerClient: IDisposable
     {
         private readonly GrpcChannel _grpcChannel;
@@ -110,6 +113,12 @@ namespace gRPCMessage.Client
                     if (_replayMoveNextTask.IsCompleted)
                     {
                         var value = call.ResponseStream.Current;
+                        if (value == null)
+                        {
+                            _replayMoveNextTask = call.ResponseStream.MoveNext(_cancellationToken);
+                            continue;
+                        }
+
                         _consumeHook?.Invoke(value.Data);
                         _replayMoveNextTask = call.ResponseStream.MoveNext(_cancellationToken);
                     } 

@@ -8,11 +8,11 @@ using System.Collections.Generic;
 
 namespace gRPCMessage.Service
 {
-    public sealed class FanOutMessageService:MessageService.MessageServiceBase
+    public sealed class FanoutMessageService:MessageService.MessageServiceBase
     {
         private Channel<MessageReply> _channel;
 
-        private static readonly ConcurrentDictionary<string, FanOutMessageService> _keepAlivedServices = new ConcurrentDictionary<string, FanOutMessageService>();
+        private static readonly ConcurrentDictionary<string, FanoutMessageService> _keepAlivedServices = new ConcurrentDictionary<string, FanoutMessageService>();
 
         private DateTime _lastPingTime;
 
@@ -24,7 +24,7 @@ namespace gRPCMessage.Service
 
         private static readonly TimeSpan _idleTime = TimeSpan.FromMinutes(30);
 
-        public FanOutMessageService()
+        public FanoutMessageService()
         {
             _channel = Channel.CreateUnbounded<MessageReply>();
             _lastPingTime = DateTime.UtcNow;
@@ -37,12 +37,14 @@ namespace gRPCMessage.Service
             var removedKeys = new List<string>();
             foreach (var oneServicePair in _keepAlivedServices)
             {
-                if (now - oneServicePair.Value._lastPingTime < _idleTime)
+                if ((now - oneServicePair.Value._lastPingTime) < _idleTime)
                 {
                     await oneServicePair.Value._channel.Writer.WriteAsync(message);
                 }
-
-                removedKeys.Add(oneServicePair.Key);
+                else
+                {
+                    removedKeys.Add(oneServicePair.Key);
+                }
             }
 
             foreach (var oneKey in removedKeys)
@@ -60,7 +62,7 @@ namespace gRPCMessage.Service
                 try
                 {
                     // remove useless connections
-                    if (_keepAlivedServices.ContainsKey(_connectionId))
+                    if (!_keepAlivedServices.ContainsKey(_connectionId))
                     {
                         break;
                     }
@@ -78,7 +80,7 @@ namespace gRPCMessage.Service
                     var delayTask = Task.Delay(TimeSpan.FromSeconds(30), context.CancellationToken);
 
                     await Task.WhenAny(_pingTask, _channelTask, delayTask);
-                    if ((_pingTask.IsFaulted || _channelTask.IsFaulted) || (_pingTask.IsCanceled || _pingTask.IsCanceled))
+                    if ((_pingTask.IsFaulted || _channelTask.IsFaulted) || (_pingTask.IsCanceled || _pingTask.IsCanceled) || delayTask.IsCanceled)
                     {
                         _keepAlivedServices.TryRemove(_connectionId, out var value);
                         // any cases close connection
